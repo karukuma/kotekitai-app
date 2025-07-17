@@ -77,12 +77,10 @@ const KotekiForm = () => {
           loadParticipants();
         }
       } catch (error) {
-
-  console.error('Google API初期化エラー:', error);
-  console.error('エラーメッセージ:', error.message);
+   console.error('Google API初期化エラー:', error);
+  console.error('エラーメッセージ:', error?.message);
   console.error('スタックトレース:', error.stack);
   setMessage('Google API接続エラーが発生しました。');
-}
       }
     };
 
