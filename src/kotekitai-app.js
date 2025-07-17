@@ -59,10 +59,10 @@ const KotekiForm = () => {
         });
 
         await new Promise((resolve) => {
-          gapi.load('client:auth2', resolve);
+          window.gapi.load('client:auth2', resolve);
         });
 
-        await gapi.client.init({
+        await window.gapi.client.init({
           apiKey: API_KEY,
           clientId: CLIENT_ID,
           discoveryDocs: [DISCOVERY_DOC],
