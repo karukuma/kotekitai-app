@@ -1,429 +1,287 @@
-import React, { useState, useEffect } from 'react';
-import { User, Calendar, Utensils, Home, Car } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, Calendar, Utensils, Moon, Sun } from 'lucide-react';
 
-const KotekiForm = () => {
-  const [selectedName, setSelectedName] = useState('');
-  const [participantData, setParticipantData] = useState({});
-  const [participants, setParticipants] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [apiReady, setApiReady] = useState(false);
-  const [isSignedIn, setIsSignedIn] = useState(false);
+const KotekitaiApp = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    班: '',
+    // 参加項目
+    土曜午前: false,
+    土曜午後: false,
+    日曜午前: false,
+    日曜午後: false,
+    青年部: false,
+    宿泊: false,
+    // 食事項目
+    土曜昼食: '',
+    土曜おやつ: '',
+    土曜夕食: '',
+    日曜朝食: '',
+    日曜昼食: '',
+    日曜おやつ: ''
+  });
 
-  // Google Sheets API設定
-  const SPREADSHEET_ID = '1nYHpdW5LY2NRmXQr-Ab2mN7copCylb4NYSR_-PjoIFs';
-  const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
-  const SHEET_NAME = '鼓笛合宿appよう';
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState('');
 
-  // Google APIの初期化
-  useEffect(() => {
-    const initializeGapi = async () => {
-      try {
-        // Google API スクリプトをロード
-        if (!window.gapi) {
-          await new Promise((resolve) => {
-            const script = document.createElement('script');
-            script.src = 'https://apis.google.com/js/api.js';
-            script.onload = resolve;
-            document.head.appendChild(script);
-          });
-        }
+  const 班選択肢 = Array.from({length: 10}, (_, i) => `${i + 1}班`);
+  const 食事サイズ = ['', '極小', '小', '中', '大', '特大'];
 
-        // Google API クライアントを初期化
-        await new Promise((resolve) => {
-          window.gapi.load('client:auth2', resolve);
-        });
-
-        await window.gapi.client.init({
-          apiKey: AIzaSyB3sq3fwopd7hOCQzdGiUdo1LxTT6a3YkQ,
-          clientId: 19219457522-l73ijhd0n3fqj0fh7j7qm54081qepjdg.apps.googleusercontent.com,
-          discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
-          scope: SCOPES
-        });
-
-        // 認証状態を確認
-        const authInstance = window.gapi.auth2.getAuthInstance();
-        const isSignedIn = authInstance.isSignedIn.get();
-        
-        setIsSignedIn(isSignedIn);
-        setApiReady(true);
-
-        // 既にサインインしている場合は参加者データを読み込み
-        if (isSignedIn) {
-          loadParticipants();
-        }
-      } catch (error) {
-        console.error('Google API初期化エラー:', error);
-        setMessage('Google API接続エラーが発生しました。');
-      }
-    };
-
-    initializeGapi();
-  }, []);
-
-  // サインイン処理
-  const handleSignIn = async () => {
-    try {
-      setLoading(true);
-      const authInstance = window.gapi.auth2.getAuthInstance();
-      await authInstance.signIn();
-      setIsSignedIn(true);
-      await loadParticipants();
-      setMessage('サインインが完了しました。');
-    } catch (error) {
-      console.error('サインインエラー:', error);
-      setMessage('サインインに失敗しました。');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // サインアウト処理
-  const handleSignOut = async () => {
-    try {
-      const authInstance = window.gapi.auth2.getAuthInstance();
-      await authInstance.signOut();
-      setIsSignedIn(false);
-      setParticipants([]);
-      setSelectedName('');
-      setParticipantData({});
-      setMessage('サインアウトしました。');
-    } catch (error) {
-      console.error('サインアウトエラー:', error);
-      setMessage('サインアウトに失敗しました。');
-    }
-  };
-
-  // 参加者データを読み込み
-  const loadParticipants = async () => {
-    try {
-      const response = await window.gapi.client.sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET_NAME}!A2:C141`
-      });
-
-      const values = response.result.values || [];
-      const participantList = values.map((row, index) => ({
-        rowIndex: index + 2,
-        ban: row[0] || '',
-        name: row[1] || '',
-        grade: row[2] || ''
-      })).filter(p => p.name);
-
-      setParticipants(participantList);
-    } catch (error) {
-      console.error('参加者データ読み込みエラー:', error);
-      setMessage('参加者データの読み込みに失敗しました。');
-    }
-  };
-
-  // 食事サイズ選択肢
-  const mealSizes = ['極小', '小', '中', '大', '特大'];
-
-  // 参加項目の定義
-  const participationItems = [
-    { key: 'E', label: '（土）午前' },
-    { key: 'H', label: '（土）午前' },
-    { key: 'I', label: '（土）午後' },
-    { key: 'J', label: '（日）午前' },
-    { key: 'K', label: '（日）午後' },
-    { key: 'L', label: '（祭日）午前' },
-    { key: 'M', label: '（祭日）午後' },
-    { key: 'Q', label: '（土）おやつ🍰' },
-    { key: 'U', label: '（日）おやつ🍰' }
-  ];
-
-  // 食事項目の定義
-  const mealItems = [
-    { key: 'D', label: '金）前泊+ 土）朝食🍚' },
-    { key: 'F', label: '金）前泊+土）朝食🍚' },
-    { key: 'G', label: '（土）昼食🍚' },
-    { key: 'P', label: '土）宿泊+日）朝食' },
-    { key: 'S', label: '日）宿泊+祭）朝食' },
-    { key: 'T', label: '（日）昼食🍚' },
-    { key: 'V', label: '（日）夕食🍚（予備列）' }
-  ];
-
-  // 参加者選択時の処理
-  const handleNameSelect = async (name) => {
-    setSelectedName(name);
-    const participant = participants.find(p => p.name === name);
-    if (participant && apiReady) {
-      // 既存データを読み込み
-      try {
-        const response = await window.gapi.client.sheets.spreadsheets.values.get({
-          spreadsheetId: SPREADSHEET_ID,
-          range: `${SHEET_NAME}!A${participant.rowIndex}:AK${participant.rowIndex}`
-        });
-
-        const values = response.result.values?.[0] || [];
-        const data = {};
-        
-        // 既存データを読み込んで表示
-        [...participationItems, ...mealItems].forEach(item => {
-          const colIndex = item.key.charCodeAt(0) - 65;
-          data[item.key] = values[colIndex] || '';
-        });
-
-        setParticipantData(data);
-      } catch (error) {
-        console.error('データ読み込みエラー:', error);
-        setParticipantData({});
-      }
-    }
-  };
-
-  // データ更新処理
-  const handleInputChange = (key, value) => {
-    setParticipantData(prev => ({
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
       ...prev,
-      [key]: value
+      [field]: value
     }));
   };
 
-  // データ保存処理（OAuth認証済みGoogle Sheets API）
   const handleSubmit = async () => {
-    if (!selectedName) {
-      setMessage('名前を選択してください。');
+    // 必須項目のチェック
+    if (!formData.name || !formData.班) {
+      setSubmitStatus('validation_error');
       return;
     }
 
-    const participant = participants.find(p => p.name === selectedName);
-    if (!participant) {
-      setMessage('参加者が見つかりません。');
-      return;
-    }
-
-    if (!apiReady || !isSignedIn) {
-      setMessage('Google APIの準備ができていないか、サインインが必要です。');
-      return;
-    }
+    setIsSubmitting(true);
+    setSubmitStatus('');
 
     try {
-      setLoading(true);
+      // 環境変数から設定値を取得
+      const SPREADSHEET_ID = process.env.REACT_APP_SPREADSHEET_ID;
+      const API_KEY = process.env.REACT_APP_GOOGLE_API_KEY;
       
-      // バッチ更新用のリクエストを準備
-      const updates = [];
-      
-      [...participationItems, ...mealItems].forEach(item => {
-        const colIndex = item.key.charCodeAt(0) - 65;
-        const colLetter = String.fromCharCode(65 + colIndex);
-        const cellRange = `${SHEET_NAME}!${colLetter}${participant.rowIndex}`;
-        
-        updates.push({
-          range: cellRange,
-          values: [[participantData[item.key] || '']]
-        });
+      // 現在の日時
+      const now = new Date();
+      const timestamp = now.toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo'
       });
 
-      // OAuth認証済みでバッチ更新実行
-      const response = await window.gapi.client.sheets.spreadsheets.values.batchUpdate({
-        spreadsheetId: SPREADSHEET_ID,
-        resource: {
-          valueInputOption: 'RAW',
-          data: updates
+      // スプレッドシートに追加するデータ
+      const values = [
+        timestamp,
+        formData.name,
+        formData.班,
+        formData.土曜午前 ? '○' : '',
+        formData.土曜午後 ? '○' : '',
+        formData.日曜午前 ? '○' : '',
+        formData.日曜午後 ? '○' : '',
+        formData.青年部 ? '○' : '',
+        formData.宿泊 ? '○' : '',
+        formData.土曜昼食 || '',
+        formData.土曜おやつ || '',
+        formData.土曜夕食 || '',
+        formData.日曜朝食 || '',
+        formData.日曜昼食 || '',
+        formData.日曜おやつ || ''
+      ];
+
+      // Google Sheets API呼び出し
+      const response = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/A:O:append?valueInputOption=RAW&key=${API_KEY}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            values: [values]
+          }),
         }
-      });
+      );
 
-      if (response.status === 200) {
-        setMessage(`${selectedName}さんの情報を更新しました！`);
+      if (response.ok) {
+        setSubmitStatus('success');
+        // フォームリセット
+        setFormData({
+          name: '',
+          班: '',
+          土曜午前: false,
+          土曜午後: false,
+          日曜午前: false,
+          日曜午後: false,
+          青年部: false,
+          宿泊: false,
+          土曜昼食: '',
+          土曜おやつ: '',
+          土曜夕食: '',
+          日曜朝食: '',
+          日曜昼食: '',
+          日曜おやつ: ''
+        });
       } else {
-        setMessage('データの保存に失敗しました。');
+        const errorData = await response.json();
+        console.error('API Error:', errorData);
+        throw new Error('送信に失敗しました');
       }
     } catch (error) {
-      console.error('データ保存エラー:', error);
-      if (error.status === 403) {
-        setMessage('書き込み権限がありません。スプレッドシートの共有設定を確認してください。');
-      } else if (error.status === 401) {
-        setMessage('認証が無効です。再度サインインしてください。');
-        setIsSignedIn(false);
-      } else {
-        setMessage('データの保存に失敗しました。');
-      }
+      console.error('送信エラー:', error);
+      setSubmitStatus('error');
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  // APIが準備されていない場合のローディング画面
-  if (!apiReady) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
-          <div className="text-center">
-            <Calendar className="mx-auto h-12 w-12 text-blue-600 mb-4" />
-            <h1 className="text-2xl font-bold text-gray-800 mb-4">読み込み中...</h1>
-            <p className="text-gray-600">Google Sheets APIを初期化しています</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // サインインが必要な場合のログイン画面
-  if (!isSignedIn) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
-          <div className="text-center mb-6">
-            <User className="mx-auto h-12 w-12 text-blue-600 mb-4" />
-            <h1 className="text-2xl font-bold text-gray-800">鼓笛合宿参加申込</h1>
-            <p className="text-gray-600 mt-2">スプレッドシートへの書き込みのため、Googleアカウントでサインインしてください</p>
-          </div>
-          
-          <button
-            onClick={handleSignIn}
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-          >
-            {loading ? 'サインイン中...' : 'Googleでサインイン'}
-          </button>
-          
-          {message && (
-            <div className="mt-4 p-3 bg-red-100 border border-red-300 rounded-lg">
-              <p className="text-red-700 text-sm">{message}</p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white rounded-xl shadow-lg p-8">
           <div className="text-center mb-8">
-            <Calendar className="mx-auto h-12 w-12 text-blue-600 mb-4" />
-            <h1 className="text-3xl font-bold text-gray-800">鼓笛合宿参加申込フォーム</h1>
-            <p className="text-gray-600 mt-2">参加項目と食事を選択してください</p>
-            
-            {/* サインアウトボタン */}
-            <div className="mt-4 flex justify-end">
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">
+              🥁 鼓笛合宿 参加申込
+            </h1>
+            <p className="text-gray-600">
+              参加項目と食事の希望を選択してください
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            {/* 基本情報 */}
+            <div className="bg-gray-50 p-6 rounded-lg">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                <User className="mr-2" size={20} />
+                基本情報
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    お名前 *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    班 *
+                  </label>
+                  <select
+                    value={formData.班}
+                    onChange={(e) => handleInputChange('班', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">選択してください</option>
+                    {班選択肢.map(班 => (
+                      <option key={班} value={班}>{班}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* 参加項目 */}
+            <div className="bg-gray-50 p-6 rounded-lg">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                <Calendar className="mr-2" size={20} />
+                参加項目
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { key: '土曜午前', label: '土曜午前', icon: <Sun size={16} /> },
+                  { key: '土曜午後', label: '土曜午後', icon: <Sun size={16} /> },
+                  { key: '日曜午前', label: '日曜午前', icon: <Sun size={16} /> },
+                  { key: '日曜午後', label: '日曜午後', icon: <Sun size={16} /> },
+                  { key: '青年部', label: '青年部', icon: <User size={16} /> },
+                  { key: '宿泊', label: '宿泊', icon: <Moon size={16} /> }
+                ].map(item => (
+                  <div key={item.key} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id={item.key}
+                      checked={formData[item.key]}
+                      onChange={(e) => handleInputChange(item.key, e.target.checked)}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor={item.key} className="flex items-center text-sm text-gray-700">
+                      {item.icon}
+                      <span className="ml-1">{item.label}</span>
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 食事項目 */}
+            <div className="bg-gray-50 p-6 rounded-lg">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                <Utensils className="mr-2" size={20} />
+                食事の希望
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { key: '土曜昼食', label: '土曜昼食 🍚' },
+                  { key: '土曜おやつ', label: '土曜おやつ 🍰' },
+                  { key: '土曜夕食', label: '土曜夕食 🍚' },
+                  { key: '日曜朝食', label: '日曜朝食 🍚' },
+                  { key: '日曜昼食', label: '日曜昼食 🍚' },
+                  { key: '日曜おやつ', label: '日曜おやつ 🍰' }
+                ].map(item => (
+                  <div key={item.key}>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {item.label}
+                    </label>
+                    <select
+                      value={formData[item.key]}
+                      onChange={(e) => handleInputChange(item.key, e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {食事サイズ.map(size => (
+                        <option key={size} value={size}>
+                          {size || '希望なし'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 送信ボタン */}
+            <div className="flex justify-center">
               <button
-                onClick={handleSignOut}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 underline"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200 flex items-center space-x-2"
               >
-                サインアウト
+                {isSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>送信中...</span>
+                  </>
+                ) : (
+                  <span>申込を送信</span>
+                )}
               </button>
             </div>
+
+            {/* 送信状況表示 */}
+            {submitStatus === 'validation_error' && (
+              <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded text-center">
+                お名前と班を入力してください。
+              </div>
+            )}
+            {submitStatus === 'success' && (
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded text-center">
+                申込を受け付けました！
+              </div>
+            )}
+            {submitStatus === 'error' && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-center">
+                送信中にエラーが発生しました。再度お試しください。
+              </div>
+            )}
           </div>
-
-          {/* 名前選択 */}
-          <div className="mb-8">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              参加者名
-            </label>
-            <select
-              value={selectedName}
-              onChange={(e) => handleNameSelect(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">参加者を選択してください</option>
-              {participants.map((participant, index) => (
-                <option key={index} value={participant.name}>
-                  {participant.ban}班 - {participant.name} ({participant.grade})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {selectedName && (
-            <div className="space-y-8">
-              {/* 参加項目 */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                  <Calendar className="h-5 w-5 mr-2" />
-                  参加項目
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {participationItems.map((item) => (
-                    <div key={item.key} className="flex items-center space-x-3">
-                      <label className="flex-1 text-sm text-gray-700">{item.label}</label>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleInputChange(item.key, '〇')}
-                          className={`px-3 py-1 rounded text-sm ${
-                            participantData[item.key] === '〇'
-                              ? 'bg-green-600 text-white'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                        >
-                          〇
-                        </button>
-                        <button
-                          onClick={() => handleInputChange(item.key, '✖')}
-                          className={`px-3 py-1 rounded text-sm ${
-                            participantData[item.key] === '✖'
-                              ? 'bg-red-600 text-white'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                        >
-                          ✖
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 食事項目 */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                  <Utensils className="h-5 w-5 mr-2" />
-                  食事項目
-                </h2>
-                <div className="space-y-4">
-                  {mealItems.map((item) => (
-                    <div key={item.key} className="flex items-center space-x-3">
-                      <label className="flex-1 text-sm text-gray-700">{item.label}</label>
-                      <select
-                        value={participantData[item.key] || ''}
-                        onChange={(e) => handleInputChange(item.key, e.target.value)}
-                        className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="">選択してください</option>
-                        {mealSizes.map((size) => (
-                          <option key={size} value={size}>{size}</option>
-                        ))}
-                      </select>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 送信ボタン */}
-              <div className="flex justify-center">
-                <button
-                  onClick={handleSubmit}
-                  disabled={loading || !selectedName}
-                  className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 font-semibold"
-                >
-                  {loading ? '保存中...' : '申込内容を保存'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {message && (
-            <div className={`mt-6 p-4 rounded-lg ${
-              message.includes('更新しました') 
-                ? 'bg-green-100 border border-green-300' 
-                : 'bg-yellow-100 border border-yellow-300'
-            }`}>
-              <p className={`text-sm ${
-                message.includes('更新しました') 
-                  ? 'text-green-700' 
-                  : 'text-yellow-700'
-              }`}>
-                {message}
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
 };
 
-export default KotekiForm;
+export default KotekitaiApp;
