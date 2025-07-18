@@ -12,8 +12,6 @@ const KotekiForm = () => {
 
   // Google Sheets API設定
   const SPREADSHEET_ID = '1nYHpdW5LY2NRmXQr-Ab2mN7copCylb4NYSR_-PjoIFs';
-  const API_KEY = 'AIzaSyB3sq3fwopd7hOCQzdGiUdo1LxTT6a3YkQ';
-  const CLIENT_ID = '19219457522-l73ijhd0n3fqj0fh7j7qm54081qepjdg.apps.googleusercontent.com';
   const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
   const SHEET_NAME = '鼓笛合宿appよう';
 
@@ -37,8 +35,8 @@ const KotekiForm = () => {
         });
 
         await window.gapi.client.init({
-          apiKey: API_KEY,
-          clientId: CLIENT_ID,
+          apiKey: AIzaSyB3sq3fwopd7hOCQzdGiUdo1LxTT6a3YkQ,
+          clientId: 19219457522-l73ijhd0n3fqj0fh7j7qm54081qepjdg.apps.googleusercontent.com,
           discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
           scope: SCOPES
         });
