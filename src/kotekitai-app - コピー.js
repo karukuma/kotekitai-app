@@ -1,3 +1,5 @@
+// src/kotekitai-app.js
+/* global gapi */
 import React, { useState, useEffect } from 'react';
 import { User, Calendar, Utensils, Home, Car } from 'lucide-react';
 
@@ -7,117 +9,16 @@ const KotekiForm = () => {
   const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [apiReady, setApiReady] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
 
-  // Google Sheets API設定
-  const SPREADSHEET_ID = '1nYHpdW5LY2NRmXQr-Ab2mN7copCylb4NYSR_-PjoIFs';
-  const API_KEY = 'AIzaSyB3sq3fwopd7hOCQzdGiUdo1LxTT6a3YkQ';
-  const CLIENT_ID = '19219457522-l73ijhd0n3fqj0fh7j7qm54081qepjdg.apps.googleusercontent.com';
+  // 環境変数から取得
+  const SPREADSHEET_ID = process.env.REACT_APP_SPREADSHEET_ID || '1nYHpdW5LY2NRmXQr-Ab2mN7copCylb4NYSR_-PjoIFs';
+  const CLIENT_ID = process.env.REACT_APP_CLIENT_ID || '19219457522-l73ijhd0n3fqj0fh7j7qm54081qepjdg.apps.googleusercontent.com';
+  const API_KEY = process.env.REACT_APP_API_KEY || 'AIzaSyB3sq3fwopd7hOCQzdGiUdo1LxTT6a3YkQ';
+  const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
   const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
-  const SHEET_NAME = '鼓笛合宿appよう';
-
-  // Google APIの初期化
-  useEffect(() => {
-    const initializeGapi = async () => {
-      try {
-        // Google API スクリプトをロード
-        if (!window.gapi) {
-          await new Promise((resolve) => {
-            const script = document.createElement('script');
-            script.src = 'https://apis.google.com/js/api.js';
-            script.onload = resolve;
-            document.head.appendChild(script);
-          });
-        }
-
-        // Google API クライアントを初期化
-        await new Promise((resolve) => {
-          window.gapi.load('client:auth2', resolve);
-        });
-
-        await window.gapi.client.init({
-          apiKey: API_KEY,
-          clientId: CLIENT_ID,
-          discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
-          scope: SCOPES
-        });
-
-        // 認証状態を確認
-        const authInstance = window.gapi.auth2.getAuthInstance();
-        const isSignedIn = authInstance.isSignedIn.get();
-        
-        setIsSignedIn(isSignedIn);
-        setApiReady(true);
-
-        // 既にサインインしている場合は参加者データを読み込み
-        if (isSignedIn) {
-          loadParticipants();
-        }
-      } catch (error) {
-        console.error('Google API初期化エラー:', error);
-        setMessage('Google API接続エラーが発生しました。');
-      }
-    };
-
-    initializeGapi();
-  }, []);
-
-  // サインイン処理
-  const handleSignIn = async () => {
-    try {
-      setLoading(true);
-      const authInstance = window.gapi.auth2.getAuthInstance();
-      await authInstance.signIn();
-      setIsSignedIn(true);
-      await loadParticipants();
-      setMessage('サインインが完了しました。');
-    } catch (error) {
-      console.error('サインインエラー:', error);
-      setMessage('サインインに失敗しました。');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // サインアウト処理
-  const handleSignOut = async () => {
-    try {
-      const authInstance = window.gapi.auth2.getAuthInstance();
-      await authInstance.signOut();
-      setIsSignedIn(false);
-      setParticipants([]);
-      setSelectedName('');
-      setParticipantData({});
-      setMessage('サインアウトしました。');
-    } catch (error) {
-      console.error('サインアウトエラー:', error);
-      setMessage('サインアウトに失敗しました。');
-    }
-  };
-
-  // 参加者データを読み込み
-  const loadParticipants = async () => {
-    try {
-      const response = await window.gapi.client.sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET_NAME}!A2:C141`
-      });
-
-      const values = response.result.values || [];
-      const participantList = values.map((row, index) => ({
-        rowIndex: index + 2,
-        ban: row[0] || '',
-        name: row[1] || '',
-        grade: row[2] || ''
-      })).filter(p => p.name);
-
-      setParticipants(participantList);
-    } catch (error) {
-      console.error('参加者データ読み込みエラー:', error);
-      setMessage('参加者データの読み込みに失敗しました。');
-    }
-  };
+  
+  
 
   // 食事サイズ選択肢
   const mealSizes = ['極小', '小', '中', '大', '特大'];
@@ -146,23 +47,108 @@ const KotekiForm = () => {
     { key: 'V', label: '（日）夕食🍚（予備列）' }
   ];
 
+  // Google API初期化
+  useEffect(() => {
+    const initializeGapi = async () => {
+      try {
+        await new Promise((resolve) => {
+          const script = document.createElement('script');
+          script.src = 'https://apis.google.com/js/api.js';
+          script.onload = resolve;
+          document.head.appendChild(script);
+        });
+
+        await new Promise((resolve) => {
+          window.gapi.load('client:auth2', resolve);
+        });
+
+        await window.gapi.client.init({
+          apiKey: API_KEY,
+          clientId: CLIENT_ID,
+          discoveryDocs: [DISCOVERY_DOC],
+          scope: SCOPES
+        });
+
+        const authInstance = gapi.auth2.getAuthInstance();
+        setIsSignedIn(authInstance.isSignedIn.get());
+
+        // 参加者データを読み込み
+        if (authInstance.isSignedIn.get()) {
+          loadParticipants();
+        }
+      } catch (error) {
+   console.error('Google API初期化エラー:', error);
+  console.error('エラーメッセージ:', error?.message);
+  console.error('スタックトレース:', error.stack);
+  setMessage('Google API接続エラーが発生しました。');
+      }
+    };
+
+    initializeGapi();
+  }, []);
+
+  // サインイン処理
+  const handleSignIn = async () => {
+    try {
+      setLoading(true);
+      const authInstance = gapi.auth2.getAuthInstance();
+      await authInstance.signIn();
+      setIsSignedIn(true);
+      await loadParticipants();
+      setMessage('サインインが完了しました。');
+    } catch (error) {
+      console.error('サインインエラー:', error);
+      setMessage('サインインに失敗しました。');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 参加者データを読み込み
+  const loadParticipants = async () => {
+    try {
+      const response = await gapi.client.sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: '鼓笛合宿appよう!A2:C141'
+      });
+
+      const values = response.result.values || [];
+      const participantList = values.map((row, index) => ({
+        rowIndex: index + 2,
+        ban: row[0] || '',
+        name: row[1] || '',
+        grade: row[2] || ''
+      })).filter(p => p.name);
+
+      setParticipants(participantList);
+    } catch (error) {
+      console.error('参加者データ読み込みエラー:', error);
+      setMessage('参加者データの読み込みに失敗しました。');
+    }
+  };
+
   // 参加者選択時の処理
   const handleNameSelect = async (name) => {
     setSelectedName(name);
     const participant = participants.find(p => p.name === name);
-    if (participant && apiReady) {
+    if (participant) {
       // 既存データを読み込み
       try {
-        const response = await window.gapi.client.sheets.spreadsheets.values.get({
+        const response = await gapi.client.sheets.spreadsheets.values.get({
           spreadsheetId: SPREADSHEET_ID,
-          range: `${SHEET_NAME}!A${participant.rowIndex}:AK${participant.rowIndex}`
+          range: `鼓笛合宿appよう!A${participant.rowIndex}:AK${participant.rowIndex}`
         });
 
         const values = response.result.values?.[0] || [];
         const data = {};
         
         // 既存データを読み込んで表示
-        [...participationItems, ...mealItems].forEach(item => {
+        participationItems.forEach(item => {
+          const colIndex = item.key.charCodeAt(0) - 65;
+          data[item.key] = values[colIndex] || '';
+        });
+
+        mealItems.forEach(item => {
           const colIndex = item.key.charCodeAt(0) - 65;
           data[item.key] = values[colIndex] || '';
         });
@@ -183,7 +169,7 @@ const KotekiForm = () => {
     }));
   };
 
-  // データ保存処理（OAuth認証済みGoogle Sheets API）
+  // データ保存処理
   const handleSubmit = async () => {
     if (!selectedName) {
       setMessage('名前を選択してください。');
@@ -196,30 +182,23 @@ const KotekiForm = () => {
       return;
     }
 
-    if (!apiReady || !isSignedIn) {
-      setMessage('Google APIの準備ができていないか、サインインが必要です。');
-      return;
-    }
-
     try {
       setLoading(true);
       
-      // バッチ更新用のリクエストを準備
+      // 更新データを準備
       const updates = [];
       
       [...participationItems, ...mealItems].forEach(item => {
         const colIndex = item.key.charCodeAt(0) - 65;
-        const colLetter = String.fromCharCode(65 + colIndex);
-        const cellRange = `${SHEET_NAME}!${colLetter}${participant.rowIndex}`;
-        
+        const cellRange = `鼓笛合宿appよう!${item.key}${participant.rowIndex}`;
         updates.push({
           range: cellRange,
           values: [[participantData[item.key] || '']]
         });
       });
 
-      // OAuth認証済みでバッチ更新実行
-      const response = await window.gapi.client.sheets.spreadsheets.values.batchUpdate({
+      // バッチ更新
+      await gapi.client.sheets.spreadsheets.values.batchUpdate({
         spreadsheetId: SPREADSHEET_ID,
         resource: {
           valueInputOption: 'RAW',
@@ -227,42 +206,15 @@ const KotekiForm = () => {
         }
       });
 
-      if (response.status === 200) {
-        setMessage(`${selectedName}さんの情報を更新しました！`);
-      } else {
-        setMessage('データの保存に失敗しました。');
-      }
+      setMessage(`${selectedName}さんの情報を更新しました！`);
     } catch (error) {
       console.error('データ保存エラー:', error);
-      if (error.status === 403) {
-        setMessage('書き込み権限がありません。スプレッドシートの共有設定を確認してください。');
-      } else if (error.status === 401) {
-        setMessage('認証が無効です。再度サインインしてください。');
-        setIsSignedIn(false);
-      } else {
-        setMessage('データの保存に失敗しました。');
-      }
+      setMessage('データの保存に失敗しました。');
     } finally {
       setLoading(false);
     }
   };
 
-  // APIが準備されていない場合のローディング画面
-  if (!apiReady) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
-          <div className="text-center">
-            <Calendar className="mx-auto h-12 w-12 text-blue-600 mb-4" />
-            <h1 className="text-2xl font-bold text-gray-800 mb-4">読み込み中...</h1>
-            <p className="text-gray-600">Google Sheets APIを初期化しています</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // サインインが必要な場合のログイン画面
   if (!isSignedIn) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -270,7 +222,7 @@ const KotekiForm = () => {
           <div className="text-center mb-6">
             <User className="mx-auto h-12 w-12 text-blue-600 mb-4" />
             <h1 className="text-2xl font-bold text-gray-800">鼓笛合宿参加申込</h1>
-            <p className="text-gray-600 mt-2">スプレッドシートへの書き込みのため、Googleアカウントでサインインしてください</p>
+            <p className="text-gray-600 mt-2">Googleアカウントでサインインしてください</p>
           </div>
           
           <button
@@ -299,16 +251,6 @@ const KotekiForm = () => {
             <Calendar className="mx-auto h-12 w-12 text-blue-600 mb-4" />
             <h1 className="text-3xl font-bold text-gray-800">鼓笛合宿参加申込フォーム</h1>
             <p className="text-gray-600 mt-2">参加項目と食事を選択してください</p>
-            
-            {/* サインアウトボタン */}
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={handleSignOut}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 underline"
-              >
-                サインアウト
-              </button>
-            </div>
           </div>
 
           {/* 名前選択 */}
