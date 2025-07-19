@@ -1,13 +1,4 @@
 {
-  "name": "firestore-sheets-sync",
-  "version": "1.0.0",
-  "description": "Firestore to Google Sheets sync with Vercel Functions",
-  "type": "module",
-  "dependencies": {
-    "firebase-admin": "^12.0.0",
-    "googleapis": "^128.0.0"
-  },
-  "engines": {
-    "node": "22.x"
-  }
+  "name": "kotekitai-app",
+  "version": "1.0.0"
 }
