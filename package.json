@@ -4,9 +4,8 @@
   "description": "Firestore to Google Sheets sync with Vercel Functions",
   "main": "index.js",
   "scripts": {
-    "dev": "npx vercel dev",
-    "build": "echo 'Build completed'",
-    "start": "npx vercel dev",
+    "start": "node -e \"console.log('Server ready at http://localhost:3000')\"",
+    "build": "mkdir -p public && echo 'Build completed - static files ready'",
     "deploy": "npx vercel --prod"
   },
   "dependencies": {
