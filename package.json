@@ -4,9 +4,10 @@
   "description": "Firestore to Google Sheets sync with Vercel Functions",
   "main": "index.js",
   "scripts": {
-    "dev": "vercel dev",
-    "build": "vercel build",
-    "deploy": "vercel --prod"
+    "dev": "npx vercel dev",
+    "build": "echo 'Build completed'",
+    "start": "npx vercel dev",
+    "deploy": "npx vercel --prod"
   },
   "dependencies": {
     "firebase-admin": "^12.0.0",
